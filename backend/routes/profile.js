@@ -1,0 +1,51 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+const auth = require('../middleware/auth');
+
+// GET my profile
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// UPDATE my profile
+router.put('/me', auth, async (req, res) => {
+  try {
+    const { name, bio, avatar } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { name, bio, avatar },
+      { new: true }
+    ).select('-password');
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET all investors
+router.get('/investors', auth, async (req, res) => {
+  try {
+    const investors = await User.find({ role: 'investor' }).select('-password');
+    res.json(investors);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET all entrepreneurs
+router.get('/entrepreneurs', auth, async (req, res) => {
+  try {
+    const entrepreneurs = await User.find({ role: 'entrepreneur' }).select('-password');
+    res.json(entrepreneurs);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+module.exports = router;

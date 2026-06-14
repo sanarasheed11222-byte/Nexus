@@ -7,9 +7,19 @@ dotenv.config();
 
 const app = express();
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
+// Routes
+const authRoutes = require('./routes/auth');
+const profileRoutes = require('./routes/profile');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/profile', profileRoutes);
+
+
+// Test route
 app.get('/', (req, res) => {
   res.json({ message: 'Nexus Backend is running!' });
 });
