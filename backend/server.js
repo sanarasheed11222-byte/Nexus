@@ -28,6 +28,7 @@ const meetingRoutes = require('./routes/meetings');
 const documentRoutes = require('./routes/documents');
 const paymentRoutes = require('./routes/payments');
 const messageRoutes = require('./routes/messages');
+const videoRoutes = require('./routes/video');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
@@ -35,6 +36,7 @@ app.use('/api/meetings', meetingRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/video', videoRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
@@ -44,23 +46,18 @@ app.get('/', (req, res) => {
   res.json({ message: 'Nexus Backend is running!' });
 });
 
-// Socket.IO for real-time chat
+// Socket.IO
 const onlineUsers = {};
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // User joins with their ID
   socket.on('join', (userId) => {
     onlineUsers[userId] = socket.id;
-    console.log('User joined:', userId);
   });
 
-  // Send message
   socket.on('sendMessage', async (data) => {
     const { senderId, receiverId, content } = data;
-
-    // Save to database
     const message = new Message({
       sender: senderId,
       receiver: receiverId,
@@ -68,7 +65,6 @@ io.on('connection', (socket) => {
     });
     await message.save();
 
-    // Send to receiver if online
     const receiverSocket = onlineUsers[receiverId];
     if (receiverSocket) {
       io.to(receiverSocket).emit('receiveMessage', {
@@ -79,14 +75,38 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Disconnect
+  socket.on('callUser', (data) => {
+    const { userToCall, signalData, from, name } = data;
+    const receiverSocket = onlineUsers[userToCall];
+    if (receiverSocket) {
+      io.to(receiverSocket).emit('incomingCall', {
+        signal: signalData,
+        from,
+        name
+      });
+    }
+  });
+
+  socket.on('answerCall', (data) => {
+    const callerSocket = onlineUsers[data.to];
+    if (callerSocket) {
+      io.to(callerSocket).emit('callAccepted', data.signal);
+    }
+  });
+
+  socket.on('endCall', (data) => {
+    const receiverSocket = onlineUsers[data.to];
+    if (receiverSocket) {
+      io.to(receiverSocket).emit('callEnded');
+    }
+  });
+
   socket.on('disconnect', () => {
     Object.keys(onlineUsers).forEach(userId => {
       if (onlineUsers[userId] === socket.id) {
         delete onlineUsers[userId];
       }
     });
-    console.log('User disconnected:', socket.id);
   });
 });
 
