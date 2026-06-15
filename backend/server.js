@@ -29,6 +29,8 @@ const documentRoutes = require('./routes/documents');
 const paymentRoutes = require('./routes/payments');
 const messageRoutes = require('./routes/messages');
 const videoRoutes = require('./routes/video');
+const notificationRoutes = require('./routes/notifications');
+
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
@@ -37,6 +39,8 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/api/notifications', notificationRoutes);
+
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
