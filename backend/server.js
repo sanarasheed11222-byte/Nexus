@@ -30,6 +30,8 @@ const paymentRoutes = require('./routes/payments');
 const messageRoutes = require('./routes/messages');
 const videoRoutes = require('./routes/video');
 const notificationRoutes = require('./routes/notifications');
+const dealRoutes = require('./routes/deals');
+
 
 
 app.use('/api/auth', authRoutes);
@@ -40,6 +42,9 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/video', videoRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/deals', dealRoutes);
+
+
 
 
 // Serve uploaded files
