@@ -31,6 +31,8 @@ const messageRoutes = require('./routes/messages');
 const videoRoutes = require('./routes/video');
 const notificationRoutes = require('./routes/notifications');
 const dealRoutes = require('./routes/deals');
+const helpRoutes = require('./routes/help');
+
 
 
 
@@ -43,6 +45,8 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/video', videoRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/deals', dealRoutes);
+app.use('/api/help', helpRoutes);
+
 
 
 

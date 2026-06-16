@@ -1,52 +1,52 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { messageService } from '../../services/messageService';
 import { profileService } from '../../services/profileService';
 import { Avatar } from '../../components/ui/Avatar';
-import { Send, MessageCircle } from 'lucide-react';
+import { Send, MessageCircle, Phone, Video } from 'lucide-react';
+import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 export const MessagesPage: React.FC = () => {
   const { user } = useAuth();
-  const [conversations, setConversations] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<any>(null);
 
   useEffect(() => {
-    loadData();
+    loadUsers();
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const loadData = async () => {
+  const loadUsers = async () => {
     try {
-      const [convs, investors, entrepreneurs] = await Promise.all([
-        messageService.getConversations(),
+      const [investors, entrepreneurs] = await Promise.all([
         profileService.getInvestors(),
         profileService.getEntrepreneurs()
       ]);
-      setConversations(convs);
       const allUsers = [...investors, ...entrepreneurs].filter(u => u._id !== user?.id);
       setUsers(allUsers);
     } catch (err) {
-      console.error('Failed to load data');
+      console.error('Failed to load users');
     } finally {
       setLoading(false);
     }
   };
 
-  const selectUser = async (selectedUserId: string) => {
-    const found = users.find(u => u._id === selectedUserId);
-    setSelectedUser(found);
+  const selectUser = async (u: any) => {
+    setSelectedUser(u);
     try {
-      const msgs = await messageService.getMessages(selectedUserId);
+      const msgs = await messageService.getMessages(u._id);
       setMessages(msgs);
-      await messageService.markAsRead(selectedUserId);
+      await messageService.markAsRead(u._id);
     } catch (err) {
       console.error('Failed to load messages');
     }
@@ -60,7 +60,17 @@ export const MessagesPage: React.FC = () => {
       const msgs = await messageService.getMessages(selectedUser._id);
       setMessages(msgs);
     } catch (err) {
-      console.error('Failed to send message');
+      toast.error('Failed to send message');
+    }
+  };
+
+  const handleVideoCall = async () => {
+    try {
+      const response = await api.post('/video/room');
+      const { roomId } = response.data;
+      navigate('/video/' + roomId);
+    } catch (err) {
+      toast.error('Failed to start video call');
     }
   };
 
@@ -68,24 +78,22 @@ export const MessagesPage: React.FC = () => {
 
   return (
     <div className="h-[calc(100vh-8rem)] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex">
-      {/* Left sidebar - user list */}
+      {/* Left sidebar */}
       <div className="w-80 border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {users.length === 0 ? (
-            <div className="p-4 text-center text-gray-500 text-sm">
-              No users available
-            </div>
+          {loading ? (
+            <div className="p-4 text-center text-gray-500">Loading...</div>
+          ) : users.length === 0 ? (
+            <div className="p-4 text-center text-gray-500 text-sm">No users available</div>
           ) : (
             users.map(u => (
               <div
                 key={u._id}
-                onClick={() => selectUser(u._id)}
-                className={`flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 border-b border-gray-100 ${
-                  selectedUser?._id === u._id ? 'bg-primary-50' : ''
-                }`}
+                onClick={() => selectUser(u)}
+                className={"flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 border-b border-gray-100 " + (selectedUser?._id === u._id ? 'bg-primary-50' : '')}
               >
                 <Avatar src={u.avatar} name={u.name} size="md" />
                 <div>
@@ -98,47 +106,61 @@ export const MessagesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Right side - chat window */}
+      {/* Right chat window */}
       <div className="flex-1 flex flex-col">
         {selectedUser ? (
           <>
-            {/* Chat header */}
-            <div className="p-4 border-b border-gray-200 flex items-center gap-3">
-              <Avatar src={selectedUser.avatar} name={selectedUser.name} size="md" />
-              <div>
-                <p className="font-medium text-gray-900">{selectedUser.name}</p>
-                <p className="text-xs text-gray-500 capitalize">{selectedUser.role}</p>
+            {/* Header with video button */}
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar src={selectedUser.avatar} name={selectedUser.name} size="md" />
+                <div>
+                  <p className="font-medium text-gray-900">{selectedUser.name}</p>
+                  <p className="text-xs text-gray-500 capitalize">{selectedUser.role}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => toast.success('Voice call coming soon!')}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <Phone size={18} className="text-gray-600" />
+                </button>
+                <button
+                  onClick={handleVideoCall}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <Video size={18} className="text-gray-600" />
+                </button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
               {messages.length === 0 ? (
-                <div className="text-center text-gray-500 mt-8">
-                  No messages yet. Say hello! 👋
+                <div className="h-full flex flex-col items-center justify-center">
+                  <MessageCircle size={32} className="text-gray-300 mb-3" />
+                  <p className="text-gray-500">No messages yet. Say hello! 👋</p>
                 </div>
               ) : (
-                messages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${msg.sender._id === user.id || msg.sender === user.id ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs px-4 py-2 rounded-lg ${
-                        msg.sender._id === user.id || msg.sender === user.id
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
-                      <p className="text-sm">{msg.content}</p>
+                messages.map((msg, index) => {
+                  const isMe = msg.sender._id === user.id || msg.sender === user.id;
+                  return (
+                    <div key={index} className={"flex " + (isMe ? 'justify-end' : 'justify-start')}>
+                      <div className={"max-w-xs px-4 py-2 rounded-lg " + (isMe ? 'bg-primary-600 text-white' : 'bg-white text-gray-900 shadow-sm')}>
+                        <p className="text-sm">{msg.content}</p>
+                        <p className={"text-xs mt-1 " + (isMe ? 'text-primary-200' : 'text-gray-400')}>
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message input */}
+            {/* Input */}
             <div className="p-4 border-t border-gray-200 flex gap-2">
               <input
                 type="text"

@@ -1,3 +1,5 @@
+import { MeetingsPage } from './pages/meetings/MeetingsPage';
+import { VideoPage } from './pages/video/VideoPage';
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -83,6 +85,9 @@ function App() {
           <Route path="/deals" element={<DashboardLayout />}>
             <Route index element={<DealsPage />} />
           </Route>
+          <Route path="/meetings" element={<DashboardLayout />}>
+  <Route index element={<MeetingsPage />} />
+</Route>
           
           {/* Chat Routes */}
           <Route path="/chat" element={<DashboardLayout />}>
@@ -93,8 +98,11 @@ function App() {
           {/* Redirect root to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
           
+        <Route path="/video/:roomId" element={<VideoPage />} />
+          
           {/* Catch all other routes and redirect to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
+
         </Routes>
       </Router>
     </AuthProvider>

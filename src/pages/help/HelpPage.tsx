@@ -1,13 +1,14 @@
-import React from 'react';
-import { Search, Book, MessageCircle, Phone, Mail, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, Book, MessageCircle, Phone, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const faqs = [
   {
     question: 'How do I connect with investors?',
-    answer: 'You can browse our investor directory and send connection requests. Once an investor accepts, you can start messaging them directly through our platform.'
+    answer: 'Browse our investor directory and send connection requests. Once an investor accepts, you can start messaging them directly through our platform.'
   },
   {
     question: 'What should I include in my startup profile?',
@@ -15,145 +16,201 @@ const faqs = [
   },
   {
     question: 'How do I share documents securely?',
-    answer: 'You can upload documents to your secure document vault and selectively share them with connected investors. All documents are encrypted and access-controlled.'
+    answer: 'Upload documents to your secure document vault and selectively share them with connected investors. All documents are encrypted and access-controlled.'
   },
   {
     question: 'What are collaboration requests?',
     answer: 'Collaboration requests are formal expressions of interest from investors. They indicate that an investor wants to learn more about your startup and potentially discuss investment opportunities.'
+  },
+  {
+    question: 'How does the meeting scheduling work?',
+    answer: 'You can schedule meetings directly through the platform. Both parties receive notifications and can accept or reject meeting requests. The system prevents double-booking automatically.'
+  },
+  {
+    question: 'Is my data secure on Nexus?',
+    answer: 'Yes! We use industry-standard encryption, JWT authentication, and role-based access control to ensure your data is always secure and private.'
   }
 ];
 
 export const HelpPage: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [sending, setSending] = useState(false);
+
+  const filteredFaqs = faqs.filter(faq =>
+    faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSendMessage = async () => {
+    if (!form.name || !form.email || !form.message) {
+      toast.error('Please fill all required fields!');
+      return;
+    }
+    setSending(true);
+    try {
+      await api.post('/help/contact', form);
+      toast.success('Message sent successfully! We will get back to you soon.');
+      setForm({ name: '', email: '', subject: '', message: '' });
+    } catch (err) {
+      toast.error('Failed to send message. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Help & Support</h1>
-        <p className="text-gray-600">Find answers to common questions or get in touch with our support team</p>
+    <div className="space-y-8 animate-fade-in">
+      {/* Header */}
+      <div className="text-center py-8 bg-gradient-to-r from-primary-50 to-blue-50 rounded-xl">
+        <h1 className="text-3xl font-bold text-gray-900">How can we help you?</h1>
+        <p className="text-gray-600 mt-2">Search our knowledge base or contact support</p>
+        <div className="mt-6 max-w-lg mx-auto relative">
+          <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search for answers..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+          />
+        </div>
       </div>
-      
-      {/* Search */}
-      <div className="max-w-2xl">
-        <Input
-          placeholder="Search help articles..."
-          startAdornment={<Search size={18} />}
-          fullWidth
-        />
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Quick links */}
-        <Card>
-          <CardBody className="text-center p-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-primary-50 rounded-lg mb-4">
-              <Book size={24} className="text-primary-600" />
+
+      {/* Quick Links */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <CardBody className="flex items-center gap-4 py-4">
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <Book size={24} className="text-blue-600" />
             </div>
-            <h2 className="text-lg font-medium text-gray-900">Documentation</h2>
-            <p className="text-sm text-gray-600 mt-2">
-              Browse our detailed documentation and guides
-            </p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              rightIcon={<ExternalLink size={16} />}
-            >
-              View Docs
-            </Button>
+            <div>
+              <h3 className="font-semibold text-gray-900">Documentation</h3>
+              <p className="text-sm text-gray-500">Read our guides</p>
+            </div>
           </CardBody>
         </Card>
-        
-        <Card>
-          <CardBody className="text-center p-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-primary-50 rounded-lg mb-4">
-              <MessageCircle size={24} className="text-primary-600" />
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <CardBody className="flex items-center gap-4 py-4">
+            <div className="p-3 bg-green-50 rounded-lg">
+              <MessageCircle size={24} className="text-green-600" />
             </div>
-            <h2 className="text-lg font-medium text-gray-900">Live Chat</h2>
-            <p className="text-sm text-gray-600 mt-2">
-              Chat with our support team in real-time
-            </p>
-            <Button className="mt-4">
-              Start Chat
-            </Button>
+            <div>
+              <h3 className="font-semibold text-gray-900">Live Chat</h3>
+              <p className="text-sm text-gray-500">Chat with support</p>
+            </div>
           </CardBody>
         </Card>
-        
-        <Card>
-          <CardBody className="text-center p-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-primary-50 rounded-lg mb-4">
-              <Phone size={24} className="text-primary-600" />
+        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <CardBody className="flex items-center gap-4 py-4">
+            <div className="p-3 bg-purple-50 rounded-lg">
+              <Phone size={24} className="text-purple-600" />
             </div>
-            <h2 className="text-lg font-medium text-gray-900">Contact Us</h2>
-            <p className="text-sm text-gray-600 mt-2">
-              Get help via email or phone
-            </p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              leftIcon={<Mail size={16} />}
-            >
-              Contact Support
-            </Button>
+            <div>
+              <h3 className="font-semibold text-gray-900">Phone Support</h3>
+              <p className="text-sm text-gray-500">Call us directly</p>
+            </div>
           </CardBody>
         </Card>
       </div>
-      
+
       {/* FAQs */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-medium text-gray-900">Frequently Asked Questions</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            Frequently Asked Questions
+            {searchQuery && <span className="text-sm font-normal text-gray-500 ml-2">({filteredFaqs.length} results)</span>}
+          </h2>
         </CardHeader>
         <CardBody>
-          <div className="space-y-6">
-            {faqs.map((faq, index) => (
-              <div key={index} className="border-b border-gray-200 last:border-0 pb-6 last:pb-0">
-                <h3 className="text-base font-medium text-gray-900 mb-2">
-                  {faq.question}
-                </h3>
-                <p className="text-gray-600">
-                  {faq.answer}
-                </p>
-              </div>
-            ))}
-          </div>
+          {filteredFaqs.length === 0 ? (
+            <div className="text-center py-8">
+              <Search size={40} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">No results found for "{searchQuery}"</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {filteredFaqs.map((faq, index) => (
+                <div key={index} className="py-4">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                    className="flex items-center justify-between w-full text-left"
+                  >
+                    <h3 className="font-medium text-gray-900">{faq.question}</h3>
+                    {openFaq === index
+                      ? <ChevronUp size={20} className="text-gray-400 flex-shrink-0" />
+                      : <ChevronDown size={20} className="text-gray-400 flex-shrink-0" />
+                    }
+                  </button>
+                  {openFaq === index && (
+                    <p className="mt-3 text-gray-600 leading-relaxed">{faq.answer}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </CardBody>
       </Card>
-      
-      {/* Contact form */}
+
+      {/* Contact Form */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-medium text-gray-900">Still need help?</h2>
+          <h2 className="text-xl font-bold text-gray-900">Still need help?</h2>
+          <p className="text-gray-600 text-sm mt-1">Send us a message and we'll get back to you within 24 hours</p>
         </CardHeader>
         <CardBody>
-          <form className="space-y-6 max-w-2xl">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Name"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })}
                 placeholder="Your name"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
-              
-              <Input
-                label="Email"
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+              <input
                 type="email"
+                value={form.email}
+                onChange={e => setForm({ ...form, email: e.target.value })}
                 placeholder="your@email.com"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Message
-              </label>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+              <input
+                type="text"
+                value={form.subject}
+                onChange={e => setForm({ ...form, subject: e.target.value })}
+                placeholder="What is your question about?"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
               <textarea
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                rows={4}
+                value={form.message}
+                onChange={e => setForm({ ...form, message: e.target.value })}
                 placeholder="How can we help you?"
-              ></textarea>
+                rows={5}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
             </div>
-            
-            <div>
-              <Button>
-                Send Message
-              </Button>
+          </div>
+          <div className="flex items-center justify-between mt-6">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Mail size={16} />
+              <span>support@businessnexus.com</span>
             </div>
-          </form>
+            <Button onClick={handleSendMessage} disabled={sending}>
+              {sending ? 'Sending...' : 'Send Message'}
+            </Button>
+          </div>
         </CardBody>
       </Card>
     </div>
