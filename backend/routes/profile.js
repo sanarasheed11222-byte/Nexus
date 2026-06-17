@@ -49,6 +49,28 @@ router.get('/entrepreneurs', auth, async (req, res) => {
   }
 });
 
+const multer = require('multer');
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, 'avatar-' + Date.now() + require('path').extname(file.originalname))
+});
+const upload = multer({ storage });
+
+// UPLOAD avatar
+router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
+  try {
+    const avatarUrl = `/uploads/${req.file.filename}`;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { avatar: avatarUrl },
+      { new: true }
+    ).select('-password');
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;
 // UPDATE password
 router.put('/password', auth, async (req, res) => {
