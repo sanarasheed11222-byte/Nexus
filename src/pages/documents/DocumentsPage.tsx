@@ -1,16 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { FileText, Upload, Download, Trash2, Share2 } from 'lucide-react';
+import { FileText, Upload, Download, Trash2, Share2, PenTool } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { documentService } from '../../services/documentService';
+import SignatureCanvas from 'react-signature-canvas';
 import toast from 'react-hot-toast';
 
 export const DocumentsPage: React.FC = () => {
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [signModalDoc, setSignModalDoc] = useState<any>(null);
+  const [signing, setSigning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sigCanvasRef = useRef<any>(null);
 
   useEffect(() => { loadDocuments(); }, []);
 
@@ -56,9 +60,37 @@ export const DocumentsPage: React.FC = () => {
     window.open('http://localhost:5000' + fileUrl, '_blank');
   };
 
-  const handleShare = (fileUrl: string, title: string) => {
+  const handleShare = (fileUrl: string) => {
     navigator.clipboard.writeText('http://localhost:5000' + fileUrl);
     toast.success('Link copied to clipboard!');
+  };
+
+  const handleClearSignature = () => {
+    sigCanvasRef.current?.clear();
+  };
+const handleSaveSignature = async () => {
+    console.log('Button clicked, canvas ref:', sigCanvasRef.current);
+    console.log('Is empty?', sigCanvasRef.current?.isEmpty());
+    if (sigCanvasRef.current?.isEmpty()) {
+      toast.error('Please draw your signature first!');
+      return;
+    }
+    setSigning(true);
+   try {
+      console.log('Getting trimmed canvas...');
+      const signatureData = sigCanvasRef.current.getCanvas().toDataURL('image/png');
+      console.log('Got signature data, length:', signatureData.length);
+      const result = await documentService.signDocument(signModalDoc._id, signatureData);
+      console.log('Sign result:', result);
+      toast.success('Document signed successfully!');
+      setSignModalDoc(null);
+      loadDocuments();
+    } catch (err) {
+      console.error('Sign error:', err);
+      toast.error('Failed to sign document');
+    } finally {
+      setSigning(false);
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -69,9 +101,7 @@ export const DocumentsPage: React.FC = () => {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric'
-    });
+    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   return (
@@ -79,7 +109,7 @@ export const DocumentsPage: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
-          <p className="text-gray-600">Manage and share your important files</p>
+          <p className="text-gray-600">Manage, share, and sign your important files</p>
         </div>
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
         <Button leftIcon={<Upload size={18} />} onClick={() => fileInputRef.current?.click()} disabled={uploading}>
@@ -102,7 +132,7 @@ export const DocumentsPage: React.FC = () => {
         <Card>
           <CardBody className="flex items-center gap-4 py-4">
             <div className="p-3 bg-green-50 rounded-lg">
-              <FileText size={24} className="text-green-600" />
+              <PenTool size={24} className="text-green-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{documents.filter(d => d.status === 'signed').length}</p>
@@ -158,19 +188,30 @@ export const DocumentsPage: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                       <span className="uppercase font-medium">{doc.fileType?.split('/')[1] || 'FILE'}</span>
-                      <span>•</span>
+                      <span>-</span>
                       <span>{formatSize(doc.fileSize)}</span>
-                      <span>•</span>
+                      <span>-</span>
                       <span>By {doc.uploadedBy?.name}</span>
-                      <span>•</span>
+                      <span>-</span>
                       <span>{formatDate(doc.createdAt)}</span>
                     </div>
+                    {doc.signature && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Signature:</span>
+                        <img src={doc.signature} alt="signature" className="h-6 border border-gray-200 rounded bg-white" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 ml-4">
+                    {doc.status !== 'signed' && (
+                      <Button variant="ghost" size="sm" className="p-2 hover:bg-green-50 hover:text-green-600" title="Sign document" onClick={() => setSignModalDoc(doc)}>
+                        <PenTool size={18} />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="p-2 hover:bg-blue-50 hover:text-blue-600" title="Download" onClick={() => handleDownload(doc.fileUrl)}>
                       <Download size={18} />
                     </Button>
-                    <Button variant="ghost" size="sm" className="p-2 hover:bg-green-50 hover:text-green-600" title="Share" onClick={() => handleShare(doc.fileUrl, doc.title)}>
+                    <Button variant="ghost" size="sm" className="p-2 hover:bg-green-50 hover:text-green-600" title="Share" onClick={() => handleShare(doc.fileUrl)}>
                       <Share2 size={18} />
                     </Button>
                     <Button variant="ghost" size="sm" className="p-2 hover:bg-red-50 hover:text-red-600" title="Delete" onClick={() => handleDelete(doc._id)}>
@@ -183,6 +224,33 @@ export const DocumentsPage: React.FC = () => {
           )}
         </CardBody>
       </Card>
+
+      {/* Signature Modal */}
+      {signModalDoc && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Sign Document</h2>
+            <p className="text-sm text-gray-500 mb-4">{signModalDoc.title}</p>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
+              <SignatureCanvas
+                ref={sigCanvasRef}
+                penColor="#1e3a8a"
+                canvasProps={{ width: 460, height: 200, className: 'bg-white w-full' }}
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-2">Draw your signature above using your mouse or touchscreen</p>
+            <div className="flex justify-between items-center mt-6">
+              <Button variant="outline" onClick={handleClearSignature}>Clear</Button>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setSignModalDoc(null)}>Cancel</Button>
+                <Button onClick={handleSaveSignature} disabled={signing}>
+                  {signing ? 'Saving...' : 'Sign & Save'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
