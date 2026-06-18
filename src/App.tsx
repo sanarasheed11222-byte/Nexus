@@ -3,6 +3,7 @@ import { VideoPage } from './pages/video/VideoPage';
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { PaymentsPage } from './pages/payments/PaymentsPage';
 
 // Layouts
 import { DashboardLayout } from './components/layout/DashboardLayout';
@@ -81,6 +82,9 @@ function App() {
           <Route path="/help" element={<DashboardLayout />}>
             <Route index element={<HelpPage />} />
           </Route>
+          <Route path="/payments" element={<DashboardLayout />}>
+  <Route index element={<PaymentsPage />} />
+</Route>
           
           <Route path="/deals" element={<DashboardLayout />}>
             <Route index element={<DealsPage />} />
