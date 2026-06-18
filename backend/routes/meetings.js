@@ -7,8 +7,9 @@ const auth = require('../middleware/auth');
 router.post('/', auth, async (req, res) => {
   try {
     const { title, participant, date, duration, notes } = req.body;
+    const Notification = require('../models/Notification');
+    const User = require('../models/User');
 
-    // Check for conflicts
     const conflict = await Meeting.findOne({
       participant,
       date,
@@ -29,6 +30,16 @@ router.post('/', auth, async (req, res) => {
     });
 
     await meeting.save();
+
+    // Notify participant
+    const organizer = await User.findById(req.user.id);
+    await Notification.create({
+      recipient: participant,
+      sender: req.user.id,
+      type: 'meeting',
+      content: `${organizer.name} scheduled a meeting with you: "${title}" on ${new Date(date).toLocaleDateString()}`
+    });
+
     res.status(201).json(meeting);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -57,11 +68,24 @@ router.get('/', auth, async (req, res) => {
 // ACCEPT meeting
 router.put('/:id/accept', auth, async (req, res) => {
   try {
+    const Notification = require('../models/Notification');
+    const User = require('../models/User');
+    
     const meeting = await Meeting.findById(req.params.id);
     if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
     meeting.status = 'accepted';
     await meeting.save();
+
+    // Notify organizer
+    const participant = await User.findById(req.user.id);
+    await Notification.create({
+      recipient: meeting.organizer,
+      sender: req.user.id,
+      type: 'meeting',
+      content: `${participant.name} accepted your meeting: "${meeting.title}"`
+    });
+
     res.json(meeting);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -71,11 +95,24 @@ router.put('/:id/accept', auth, async (req, res) => {
 // REJECT meeting
 router.put('/:id/reject', auth, async (req, res) => {
   try {
+    const Notification = require('../models/Notification');
+    const User = require('../models/User');
+
     const meeting = await Meeting.findById(req.params.id);
     if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
 
     meeting.status = 'rejected';
     await meeting.save();
+
+    // Notify organizer
+    const participant = await User.findById(req.user.id);
+    await Notification.create({
+      recipient: meeting.organizer,
+      sender: req.user.id,
+      type: 'meeting',
+      content: `${participant.name} rejected your meeting: "${meeting.title}"`
+    });
+
     res.json(meeting);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

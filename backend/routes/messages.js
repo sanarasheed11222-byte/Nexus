@@ -7,6 +7,8 @@ const auth = require('../middleware/auth');
 router.post('/', auth, async (req, res) => {
   try {
     const { receiverId, content } = req.body;
+    const Notification = require('../models/Notification');
+    const User = require('../models/User');
 
     const message = new Message({
       sender: req.user.id,
@@ -15,12 +17,21 @@ router.post('/', auth, async (req, res) => {
     });
 
     await message.save();
+
+    // Create notification for receiver
+    const sender = await User.findById(req.user.id);
+    await Notification.create({
+      recipient: receiverId,
+      sender: req.user.id,
+      type: 'message',
+      content: `${sender.name} sent you a message: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`
+    });
+
     res.status(201).json(message);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
-
 // GET conversation between two users
 router.get('/:userId', auth, async (req, res) => {
   try {
