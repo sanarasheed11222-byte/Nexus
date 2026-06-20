@@ -49,7 +49,7 @@ export const SettingsPage: React.FC = () => {
     setUploadingPhoto(true);
     try {
       const updated = await profileService.uploadAvatar(file);
-      const fullAvatarUrl = 'http://localhost:5000' + updated.avatar;
+      const fullAvatarUrl = (import.meta.env.VITE_BASE_URL || 'http://localhost:5000') + updated.avatar;
       await updateProfile(user.id, { avatarUrl: fullAvatarUrl });
       toast.success('Photo updated successfully!');
     } catch (err) {

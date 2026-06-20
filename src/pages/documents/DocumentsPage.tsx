@@ -57,11 +57,11 @@ export const DocumentsPage: React.FC = () => {
   };
 
   const handleDownload = (fileUrl: string) => {
-    window.open('http://localhost:5000' + fileUrl, '_blank');
+    window.open((import.meta.env.VITE_BASE_URL || 'http://localhost:5000') + fileUrl, '_blank');
   };
 
   const handleShare = (fileUrl: string) => {
-    navigator.clipboard.writeText('http://localhost:5000' + fileUrl);
+    navigator.clipboard.writeText((import.meta.env.VITE_BASE_URL || 'http://localhost:5000') + fileUrl);
     toast.success('Link copied to clipboard!');
   };
 

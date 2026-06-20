@@ -58,7 +58,7 @@ export const VideoPage: React.FC = () => {
       setStream(mediaStream);
       if (localVideoRef.current) localVideoRef.current.srcObject = mediaStream;
 
-      const socket = io('http://localhost:5000');
+      const socket = io(import.meta.env.VITE_BASE_URL || 'http://localhost:5000');
       socketRef.current = socket;
 
    socket.emit('join', user?.id);
