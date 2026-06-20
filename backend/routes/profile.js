@@ -5,7 +5,8 @@ const auth = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 300 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(),limits: { fileSize: 100 * 1024 }
+ });
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');

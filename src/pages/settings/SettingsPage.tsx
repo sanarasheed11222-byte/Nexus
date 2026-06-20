@@ -50,7 +50,9 @@ export const SettingsPage: React.FC = () => {
     try {
       const updated = await profileService.uploadAvatar(file);
       const fullAvatarUrl = (import.meta.env.VITE_BASE_URL || 'http://localhost:5000') + updated.avatar;
-      await updateProfile(user.id, { avatarUrl: fullAvatarUrl });
+      const updatedUser = { ...user, avatarUrl: fullAvatarUrl };
+localStorage.setItem('business_nexus_user', JSON.stringify(updatedUser));
+window.location.reload();
       toast.success('Photo updated successfully!');
     } catch (err) {
       toast.error('Failed to upload photo');
