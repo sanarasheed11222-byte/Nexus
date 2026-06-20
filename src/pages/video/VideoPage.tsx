@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Phone, Video, VideoOff, Mic, MicOff, PhoneOff, Copy } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
+import { Video, VideoOff, Mic, MicOff, PhoneOff, Copy } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 
 export const VideoPage: React.FC = () => {
@@ -10,29 +10,96 @@ export const VideoPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(true);
+  const [connected, setConnected] = useState(false);
+  const [waiting, setWaiting] = useState(true);
+  const socketRef = useRef<any>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
 
   useEffect(() => {
-    startCamera();
-    setTimeout(() => setIsConnecting(false), 2000);
+    startCall();
     return () => {
-      stream?.getTracks().forEach(track => track.stop());
+      stream?.getTracks().forEach(t => t.stop());
+      socketRef.current?.disconnect();
+      pcRef.current?.close();
     };
   }, []);
 
-  const startCamera = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-      setStream(mediaStream);
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = mediaStream;
+  const createPeerConnection = (mediaStream: MediaStream, socket: any) => {
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    mediaStream.getTracks().forEach(track => pc.addTrack(track, mediaStream));
+
+    pc.ontrack = (event) => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+        setConnected(true);
+        setWaiting(false);
       }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit('iceCandidate', { roomId, candidate: event.candidate });
+      }
+    };
+
+    return pc;
+  };
+
+  const startCall = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      setStream(mediaStream);
+      if (localVideoRef.current) localVideoRef.current.srcObject = mediaStream;
+
+      const socket = io('http://localhost:5000');
+      socketRef.current = socket;
+
+   socket.emit('join', user?.id);
+      socket.emit('joinRoom', roomId);
+
+      socket.on('roomJoined', ({ isInitiator }: any) => {
+        if (isInitiator) {
+          console.log('I am the first user, waiting for someone to join');
+        }
+      });
+
+      socket.on('userJoinedRoom', async () => {
+        setWaiting(false);
+        const pc = createPeerConnection(mediaStream, socket);
+        pcRef.current = pc;
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('offer', { roomId, offer });
+      });
+
+      socket.on('offer', async ({ offer }: any) => {
+        const pc = createPeerConnection(mediaStream, socket);
+        pcRef.current = pc;
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('answer', { roomId, answer });
+      });
+
+      socket.on('answer', async ({ answer }: any) => {
+        await pcRef.current?.setRemoteDescription(new RTCSessionDescription(answer));
+      });
+
+      socket.on('iceCandidate', async ({ candidate }: any) => {
+        try {
+          await pcRef.current?.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.error('ICE error', e);
+        }
+      });
+
     } catch (err) {
       toast.error('Could not access camera/microphone');
     }
@@ -40,128 +107,91 @@ export const VideoPage: React.FC = () => {
 
   const toggleMute = () => {
     if (stream) {
-      stream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
+      stream.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
       setIsMuted(!isMuted);
     }
   };
 
   const toggleVideo = () => {
     if (stream) {
-      stream.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
+      stream.getVideoTracks().forEach(t => { t.enabled = !t.enabled; });
       setIsVideoOff(!isVideoOff);
     }
   };
 
   const endCall = () => {
-    stream?.getTracks().forEach(track => track.stop());
+    stream?.getTracks().forEach(t => t.stop());
+    socketRef.current?.disconnect();
+    pcRef.current?.close();
     navigate('/messages');
     toast.success('Call ended');
   };
 
-  const copyRoomId = () => {
-    navigator.clipboard.writeText(roomId || '');
-    toast.success('Room ID copied! Share it with others to join.');
-  };
-
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Header */}
       <div className="bg-gray-800 p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Video size={24} className="text-white" />
           <div>
             <h1 className="text-white font-semibold">Video Call</h1>
-            <p className="text-gray-400 text-sm">Room: {roomId?.slice(0, 8)}...</p>
+            <p className="text-gray-400 text-sm">
+              {connected ? '🟢 Connected' : waiting ? '⏳ Waiting...' : '🔄 Connecting...'}
+            </p>
           </div>
         </div>
         <button
-          onClick={copyRoomId}
-          className="flex items-center gap-2 bg-gray-700 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-gray-600 transition-colors"
+          onClick={() => { navigator.clipboard.writeText(roomId || ''); toast.success('Room ID copied!'); }}
+          className="flex items-center gap-2 bg-gray-700 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-gray-600"
         >
           <Copy size={14} />
           Copy Room ID
         </button>
       </div>
 
-      {/* Video area */}
       <div className="flex-1 relative p-4">
-        {/* Remote video placeholder */}
-        <div className="w-full h-full min-h-96 bg-gray-800 rounded-xl flex items-center justify-center">
-          {isConnecting ? (
+        <div className="w-full h-full min-h-96 bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center">
+          <video ref={remoteVideoRef} autoPlay playsInline className={connected ? 'w-full h-full object-cover' : 'hidden'} />
+          {!connected && (
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-              <p className="text-white text-lg">Connecting...</p>
-              <p className="text-gray-400 text-sm mt-1">Waiting for others to join</p>
-            </div>
-          ) : (
-            <div className="text-center">
-              <div className="w-24 h-24 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl text-white font-bold">?</span>
+              <div className="animate-pulse w-24 h-24 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Video size={40} className="text-gray-400" />
               </div>
-              <p className="text-white text-lg">Waiting for participant</p>
-              <p className="text-gray-400 text-sm mt-1">Share the Room ID to invite someone</p>
+              <p className="text-white text-lg">Waiting for participant...</p>
+              <p className="text-gray-400 text-sm mt-2">
+                Room: <span className="font-mono text-white">{roomId?.slice(0, 8)}</span>
+              </p>
             </div>
           )}
         </div>
 
-        {/* Local video */}
         <div className="absolute bottom-8 right-8 w-48 h-36 bg-gray-700 rounded-xl overflow-hidden shadow-xl border-2 border-gray-600">
           {isVideoOff ? (
             <div className="w-full h-full flex items-center justify-center">
-              <div className="text-center">
-                <VideoOff size={24} className="text-gray-400 mx-auto" />
-                <p className="text-gray-400 text-xs mt-1">Camera off</p>
-              </div>
+              <VideoOff size={24} className="text-gray-400" />
             </div>
           ) : (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              muted
-              playsInline
-              className="w-full h-full object-cover mirror"
-              style={{ transform: 'scaleX(-1)' }}
-            />
+            <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
           )}
           <div className="absolute bottom-2 left-2">
-            <span className="bg-black bg-opacity-50 text-white text-xs px-2 py-0.5 rounded">
-              {user?.name} (You)
-            </span>
+            <span className="bg-black bg-opacity-50 text-white text-xs px-2 py-0.5 rounded">{user?.name}</span>
           </div>
         </div>
       </div>
 
-      {/* Controls */}
       <div className="bg-gray-800 p-6">
         <div className="flex items-center justify-center gap-4">
-          <button
-            onClick={toggleMute}
-            className={`p-4 rounded-full transition-colors ${isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-600 hover:bg-gray-500'}`}
-          >
+          <button onClick={toggleMute} className={"p-4 rounded-full " + (isMuted ? 'bg-red-500' : 'bg-gray-600 hover:bg-gray-500')}>
             {isMuted ? <MicOff size={24} className="text-white" /> : <Mic size={24} className="text-white" />}
           </button>
-
-          <button
-            onClick={toggleVideo}
-            className={`p-4 rounded-full transition-colors ${isVideoOff ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-600 hover:bg-gray-500'}`}
-          >
+          <button onClick={toggleVideo} className={"p-4 rounded-full " + (isVideoOff ? 'bg-red-500' : 'bg-gray-600 hover:bg-gray-500')}>
             {isVideoOff ? <VideoOff size={24} className="text-white" /> : <Video size={24} className="text-white" />}
           </button>
-
-          <button
-            onClick={endCall}
-            className="p-4 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
-          >
+          <button onClick={endCall} className="p-4 rounded-full bg-red-500 hover:bg-red-600">
             <PhoneOff size={24} className="text-white" />
           </button>
         </div>
-
         <p className="text-gray-400 text-sm text-center mt-4">
-          Share Room ID <span className="text-white font-mono bg-gray-700 px-2 py-0.5 rounded">{roomId?.slice(0, 8)}</span> to invite others
+          Share Room ID <span className="text-white font-mono bg-gray-700 px-2 py-0.5 rounded">{roomId?.slice(0, 8)}</span>
         </p>
       </div>
     </div>

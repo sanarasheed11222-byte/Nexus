@@ -6,6 +6,7 @@ import { profileService } from '../../services/profileService';
 import { Avatar } from '../../components/ui/Avatar';
 import { Send, MessageCircle, Phone, Video } from 'lucide-react';
 import api from '../../services/api';
+import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 
 export const MessagesPage: React.FC = () => {
@@ -16,10 +17,29 @@ export const MessagesPage: React.FC = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [incomingCall, setIncomingCall] = useState<any>(null);
   const messagesEndRef = useRef<any>(null);
+  const socketRef = useRef<any>(null);
 
   useEffect(() => {
     loadUsers();
+
+const socket = io('http://localhost:5000');
+    socketRef.current = socket;
+    
+    socket.on('connect', () => {
+      if (user?.id) {
+        socket.emit('join', user.id);
+      }
+    });
+
+    socket.on('incomingCall', (data: any) => {
+      setIncomingCall(data);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -68,16 +88,56 @@ export const MessagesPage: React.FC = () => {
     try {
       const response = await api.post('/video/room');
       const { roomId } = response.data;
+
+      socketRef.current?.emit('callUser', {
+        userToCall: selectedUser._id,
+        from: user?.id,
+        name: user?.name,
+        roomId
+      });
+
+      toast.success('Calling ' + selectedUser.name + '...');
       navigate('/video/' + roomId);
     } catch (err) {
       toast.error('Failed to start video call');
     }
   };
 
+  const acceptCall = () => {
+    navigate('/video/' + incomingCall.roomId);
+    setIncomingCall(null);
+  };
+
+  const declineCall = () => {
+    setIncomingCall(null);
+    toast('Call declined');
+  };
+
   if (!user) return null;
 
   return (
-    <div className="h-[calc(100vh-8rem)] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex">
+    <div className="h-[calc(100vh-8rem)] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex relative">
+      {/* Incoming call popup */}
+      {incomingCall && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 text-center shadow-2xl w-80">
+            <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <Video size={32} className="text-primary-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">{incomingCall.name}</h3>
+            <p className="text-sm text-gray-500 mb-6">is calling you...</p>
+            <div className="flex justify-center gap-4">
+              <button onClick={declineCall} className="bg-red-500 text-white p-4 rounded-full hover:bg-red-600 transition-colors">
+                <Phone size={20} className="rotate-135" />
+              </button>
+              <button onClick={acceptCall} className="bg-green-500 text-white p-4 rounded-full hover:bg-green-600 transition-colors">
+                <Phone size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Left sidebar */}
       <div className="w-80 border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
@@ -110,7 +170,6 @@ export const MessagesPage: React.FC = () => {
       <div className="flex-1 flex flex-col">
         {selectedUser ? (
           <>
-            {/* Header with video button */}
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Avatar src={selectedUser.avatar} name={selectedUser.name} size="md" />
@@ -120,27 +179,20 @@ export const MessagesPage: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={() => toast.success('Voice call coming soon!')}
-                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                >
+                <button onClick={() => toast.success('Voice call coming soon!')} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                   <Phone size={18} className="text-gray-600" />
                 </button>
-                <button
-                  onClick={handleVideoCall}
-                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                >
+                <button onClick={handleVideoCall} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                   <Video size={18} className="text-gray-600" />
                 </button>
               </div>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center">
                   <MessageCircle size={32} className="text-gray-300 mb-3" />
-                  <p className="text-gray-500">No messages yet. Say hello! 👋</p>
+                  <p className="text-gray-500">No messages yet. Say hello!</p>
                 </div>
               ) : (
                 messages.map((msg, index) => {
@@ -160,7 +212,6 @@ export const MessagesPage: React.FC = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
             <div className="p-4 border-t border-gray-200 flex gap-2">
               <input
                 type="text"
@@ -170,10 +221,7 @@ export const MessagesPage: React.FC = () => {
                 placeholder="Type a message..."
                 className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
-              <button
-                onClick={sendMessage}
-                className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
-              >
+              <button onClick={sendMessage} className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
                 <Send size={18} />
               </button>
             </div>

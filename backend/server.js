@@ -65,8 +65,10 @@ const onlineUsers = {};
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  socket.on('join', (userId) => {
+socket.on('join', (userId) => {
     onlineUsers[userId] = socket.id;
+    console.log('JOIN EVENT - userId:', userId, 'socketId:', socket.id);
+    console.log('Current onlineUsers:', onlineUsers);
   });
 
   socket.on('sendMessage', async (data) => {
@@ -88,14 +90,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('callUser', (data) => {
-    const { userToCall, signalData, from, name } = data;
+socket.on('callUser', (data) => {
+    const { userToCall, from, name, roomId } = data;
+    console.log('CALL ATTEMPT - userToCall:', userToCall, 'found socket?', onlineUsers[userToCall]);
     const receiverSocket = onlineUsers[userToCall];
     if (receiverSocket) {
       io.to(receiverSocket).emit('incomingCall', {
-        signal: signalData,
         from,
-        name
+        name,
+        roomId
       });
     }
   });
@@ -106,6 +109,31 @@ io.on('connection', (socket) => {
       io.to(callerSocket).emit('callAccepted', data.signal);
     }
   });
+const roomUsers = {};
+
+socket.on('joinRoom', (roomId) => {
+  socket.join(roomId);
+  if (!roomUsers[roomId]) roomUsers[roomId] = [];
+  
+  const isFirstUser = roomUsers[roomId].length === 0;
+  roomUsers[roomId].push(socket.id);
+  
+  socket.emit('roomJoined', { isInitiator: isFirstUser });
+  
+  if (!isFirstUser) {
+    socket.to(roomId).emit('userJoinedRoom');
+  }
+
+  socket.on('disconnect', () => {
+    if (roomUsers[roomId]) {
+      roomUsers[roomId] = roomUsers[roomId].filter(id => id !== socket.id);
+    }
+  });
+});
+
+socket.on('sendSignal', ({ roomId, signal }) => {
+  socket.to(roomId).emit('receiveSignal', { signal });
+});
 
   socket.on('endCall', (data) => {
     const receiverSocket = onlineUsers[data.to];
@@ -113,6 +141,17 @@ io.on('connection', (socket) => {
       io.to(receiverSocket).emit('callEnded');
     }
   });
+  socket.on('offer', ({ roomId, offer }) => {
+  socket.to(roomId).emit('offer', { offer });
+});
+
+socket.on('answer', ({ roomId, answer }) => {
+  socket.to(roomId).emit('answer', { answer });
+});
+
+socket.on('iceCandidate', ({ roomId, candidate }) => {
+  socket.to(roomId).emit('iceCandidate', { candidate });
+});
 
   socket.on('disconnect', () => {
     Object.keys(onlineUsers).forEach(userId => {
