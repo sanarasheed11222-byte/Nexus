@@ -117,7 +117,7 @@ export const PaymentsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="bg-gradient-to-r from-primary-600 to-primary-700 text-white">
           <CardBody className="py-6">
             <p className="text-primary-100 text-sm">Total Balance</p>

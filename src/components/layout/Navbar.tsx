@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Menu, X, Bell, MessageCircle, User, LogOut, Building2, CircleDollarSign } from 'lucide-react';
+import { Menu, X, Bell, MessageCircle, User, LogOut, Building2, CircleDollarSign, Calendar, DollarSign, FileText, Settings } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
@@ -29,11 +29,16 @@ export const Navbar: React.FC = () => {
     ? `/profile/${user.role}/${user.id}` 
     : '/login';
   
-  const navLinks = [
+ const navLinks = [
     {
       icon: user?.role === 'entrepreneur' ? <Building2 size={18} /> : <CircleDollarSign size={18} />,
       text: 'Dashboard',
       path: dashboardRoute,
+    },
+    {
+      icon: <Calendar size={18} />,
+      text: 'Meetings',
+      path: user ? '/meetings' : '/login',
     },
     {
       icon: <MessageCircle size={18} />,
@@ -46,12 +51,26 @@ export const Navbar: React.FC = () => {
       path: user ? '/notifications' : '/login',
     },
     {
+      icon: <DollarSign size={18} />,
+      text: 'Payments',
+      path: user ? '/payments' : '/login',
+    },
+    {
+      icon: <FileText size={18} />,
+      text: user?.role === 'entrepreneur' ? 'Documents' : 'Deals',
+      path: user ? (user.role === 'entrepreneur' ? '/documents' : '/deals') : '/login',
+    },
+    {
       icon: <User size={18} />,
       text: 'Profile',
       path: profileRoute,
+    },
+    {
+      icon: <Settings size={18} />,
+      text: 'Settings',
+      path: user ? '/settings' : '/login',
     }
   ];
-  
   return (
     <nav className="bg-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

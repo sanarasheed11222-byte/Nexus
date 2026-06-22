@@ -140,7 +140,7 @@ export const MeetingsPage: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardBody className="flex items-center gap-4 py-4">
             <div className="p-3 bg-blue-50 rounded-lg">

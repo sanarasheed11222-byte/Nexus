@@ -117,7 +117,7 @@ const handleSaveSignature = async () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardBody className="flex items-center gap-4 py-4">
             <div className="p-3 bg-blue-50 rounded-lg">

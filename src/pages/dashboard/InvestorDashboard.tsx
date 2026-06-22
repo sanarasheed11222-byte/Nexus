@@ -71,7 +71,7 @@ export const InvestorDashboard: React.FC = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Link to="/notifications">
           <Card className="hover:shadow-md hover:border-primary-300 transition-all cursor-pointer">
             <CardBody className="flex items-center gap-4 py-4">
@@ -126,7 +126,7 @@ export const InvestorDashboard: React.FC = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="col-span-2 space-y-4">
           <Card>
             <CardHeader className="flex justify-between items-center">
