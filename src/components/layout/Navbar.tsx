@@ -71,6 +71,8 @@ export const Navbar: React.FC = () => {
       path: user ? '/settings' : '/login',
     }
   ];
+
+  const desktopNavLinks = navLinks.filter(l => ["Dashboard", "Messages", "Notifications", "Profile"].includes(l.text));
   return (
     <nav className="bg-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -92,7 +94,7 @@ export const Navbar: React.FC = () => {
           <div className="hidden md:flex md:items-center md:ml-6">
             {user ? (
               <div className="flex items-center space-x-4">
-                {navLinks.map((link, index) => (
+                {desktopNavLinks.map((link, index) => (
                   <Link
                     key={index}
                     to={link.path}
